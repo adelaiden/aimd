@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/env python
 
 # coding: utf-8
 # Copyright (c) MoGroup at UMD.
@@ -88,20 +88,6 @@ def Analyze_VASP_MD(args):
     print("Start run: {}, end run: {}".format(vasprun_dirs[0], vasprun_dirs[-1]))
     print("=" * 40)
 
-    # If drift larger than 3 angstrom, raise warning
-    if 'drift_maximum' in summary_info.keys():
-        if max(summary_info['drift_maximum']) > 3:
-            print("{} WARNING {}".format('='*20, '='*20))
-            print("The entire cell has significant drift, please check the MD data")
-            print("Maximum drift distance in xyz (Angstrom): {}".format(summary_info['drift_maximum']))
-            print("{} WARNING {}".format('=' * 20, '=' * 20))
-    # If max framework displacement larger than 5 angstrom, raise warning
-    if 'max_framework_displacement' in summary_info.keys():
-        if summary_info['max_framework_displacement'] > 5:
-            print("{} WARNING {}".format('=' * 20, '=' * 20))
-            print("There are significant movement for framework ions, may be melt. pLease check")
-            print("Maximum framework_displacement (Angstrom): {}".format(summary_info['max_framework_displacement']))
-            print("{} WARNING {}".format('=' * 20, '=' * 20))
     # results table
     header_result = ("Parameter", "Value")
     result_table = PrettyTable(header_result)
@@ -111,9 +97,9 @@ def Analyze_VASP_MD(args):
             result_table.add_row([k, str(v)])
     result_table.add_row(['composition', str(da.structure.composition)])
     print("Results table: ")
-    print("Diffusivity unit: cm^2/s, Conductivity unit: mS/cm, Drift unit: Angstrom")
+    print("Diffusivity unit: cm^2/s, Conductivity unit: mS/cm")
     print(result_table.get_string(sortby='Parameter'))
-    print(citing_info)
+    # print(citing_info)
     # whether output msd
     if args.msd_file:
         print("Output msd-dt into file: {}".format(args.msd_file))
@@ -167,20 +153,6 @@ def Analyze_arrhenius(args):
     print("Results table: ")
     print(result_table.get_string())
 
-    if args.verbose:
-        verbose_table = PrettyTable(("Patameter", "Value"))
-        verbose_table.add_row(["1000/T (1/K)", aa.x])
-        verbose_table.add_row(["log10(D) (cm^2/s)", aa.y])
-        if aa.y_error:
-            verbose_table.add_row(["Error bar of log10(D) (cm^2/s)", aa.y_error])
-        verbose_table.add_row(["Slope in arrhenius relationship", aa.slope])
-        verbose_table.add_row(["Standard deviation of slope in arrhenius relationship", aa.slope_sigma])
-        verbose_table.add_row(["Intercept in arrhenius relationship", aa.intercept])
-        verbose_table.add_row(["Standard deviation of intercept in arrhenius relationship", aa.intercept_sigma])
-        print("All details in arrhenius fitting")
-        print(verbose_table.get_string())
-
-    print(citing_info)
     if args.plot:
         plt = aa.get_arrhenius_plot()
         plt.show()
@@ -199,82 +171,64 @@ def main():
             also be used to predict diffusivity/conductivity at different temperature
             from the fitted Arrehenius relationship. The conversion factor from diffusivity
             to conductivity is (z*e)^2*c/(K*T), details can be found in paper ...
-        """,
-        formatter_class=RawTextHelpFormatter
-    )
+        """, formatter_class=RawTextHelpFormatter)
 
     subparsers = parser.add_subparsers()
 
     parser_diffusivity = subparsers.add_parser(
         "diffusivity",
-        help="Analyze diffusivity from a series vasprun.xml (or vasprun.xml.gz) files"
-    )
+        help="Analyze diffusivity from a series vasprun.xml (or vasprun.xml.gz) files")
     parser_diffusivity.add_argument(
         "specie", type=str,
         help="The diffusing species. "
              "Pleae provide species with charge, like Li+, not Li. Useful for calculation "
-             "of conductivity from diffusivity."
-    )
+             "of conductivity from diffusivity.")
     parser_diffusivity.add_argument(
         "folder_feature", type=str,
         help="The shared folder feature of all MD result folders. "
              "For example, you want to analyze ./RUN_10/vasprun.xml.gz to ./RUN_100/vasprun.xml.gz. "
              "Then you should provide ./RUN_ or just RUN_. "
              "If your folders are run_000 to run_100, please change to format folder_feature + index_number, "
-             "like run_0, ... run_100"
-    )
+             "like run_0, ... run_100")
     parser_diffusivity.add_argument(
         "runs_start", type=int,
-        help="The start index number of the folders you want to analyze. "
-    )
+        help="The start index number of the folders you want to analyze. ")
     parser_diffusivity.add_argument(
         "runs_end", type=int,
         help="The end index number of the folders you want to analyze. "
              "The end folder is included in the analysis. "
              "For example, if you want to analyze vasprun in folders [RUN_10, ..., RUN_20], "
-             "you should provide runs_end as 20."
-    )
+             "you should provide runs_end as 20.")
     parser_diffusivity.add_argument(
         "site_distance", type=float,
         help="The distance between neighboring sites for the diffusion specie. "
-             "If there are many different paths, you can provide an averaged value"
-    )
-
+             "If there are many different paths, you can provide an averaged value")
     parser_diffusivity.add_argument(
         "-msd", "--msd_file", dest="msd_file", type=str, default=None,
         help="Option to save msd-dt file in csv format. "
-             "If a file name is not provided, it will not output the msd-dt data"
-    )
+             "If a file name is not provided, it will not output the msd-dt data")
     parser_diffusivity.add_argument(
         "--step_skip", type=int, default=10,
-        help="How many steps to skip in reading MD data, default is 10."
-    )
+        help="How many steps to skip in reading MD data, default is 10.")
     parser_diffusivity.add_argument(
         "-dt", "--time_intervals_number", type=int, default=1000,
-        help="Spec of the time interval (dt) setting, the number of time_intervals. Default is 1000. "
-    )
+        help="Spec of the time interval (dt) setting, the number of time_intervals. Default is 1000. ")
     parser_diffusivity.add_argument(
         "-l", "--lower_bound_in_a_square", type=float, default=0.5,
         help="The lower fitting bound in unit of a^2, a is the site distance. "
-             "Default is 0.5. Typical lower bound is in unit of A^2"
-    )
+             "Default is 0.5. Typical lower bound is in unit of A^2")
     parser_diffusivity.add_argument(
         "-u", "--upper_bound", type=float, default=0.5,
         help="The upper fitting bound, unit is total time. "
-             "Default is 0.5 t_total"
-    )
+             "Default is 0.5 t_total")
     parser_diffusivity.add_argument(
         "-min", "--minimum_msd_diff_in_a_square", type=float, default=0.5,
         help="The minimum msd range for fitting range, in unit of a^2. "
-             "The fitting range should cover a range of MSD, default is 0.5. "
-    )
+             "The fitting range should cover a range of MSD, default is 0.5. ")
     parser_diffusivity.add_argument(
         "-n", "--ncores", type=int, default=1,
-        help="Number of cores used to do the analysis, default is 1. "
-    )
-    parser_diffusivity.set_defaults(
-        func=Analyze_VASP_MD
-    )
+        help="Number of cores used to do the analysis, default is 1. ")
+    parser_diffusivity.set_defaults(func=Analyze_VASP_MD)
 
     parser_arrhenius = subparsers.add_parser(
         "arrhenius",
@@ -283,43 +237,34 @@ def main():
              "The header of csv MUST be D,T,D_error"
              "You can also predict diffusivity at different temperatures. "
              "More over, if you can also provide structure by POSCAR and the diffusion specie, "
-             "you can obtain the corresponding conductivity."
-    )  # Add this line to arrhenius -h output
+             "you can obtain the corresponding conductivity.") 
 
     parser_arrhenius.add_argument(
         "D_T_csv_file", type=str,
         help="The csv file containing temperatures, diffusivities, and diffusivities error (error is optional). "
-             "The csv header must be D,T, D_error, and the columns must follow that form."
-    )
+             "The csv header must be D,T, D_error, and the columns must follow that form.")
     parser_arrhenius.add_argument(
         "-T", "--temperature", type=float, default=None,
-        help="new temperature to predict diffusivity/conductivity"
-    )
+        help="new temperature to predict diffusivity/conductivity")
     parser_arrhenius.add_argument(
         "-p", "--poscar", type=str, default=None,
         help="The POSCAR file of structure, any structure file is okay, "
-             "as long as the volume and number of diffusion specie are same."
-    )
+             "as long as the volume and number of diffusion specie are same.")
     parser_arrhenius.add_argument(
         "-s", "--specie", type=str, default=None,
         help="The interested diffusion specie. "
-             "It must charge information like Li+, not Li."
-    )
+             "It must charge information like Li+, not Li.")
     parser_arrhenius.add_argument(
         "-v", "--verbose", default=False, action="store_true",
-        help="Whether output details of fitting"
-    )
+        help="Whether output details of fitting")
     parser_arrhenius.add_argument(
         "-pl", "--plot", default=False, action='store_true',
-        help="Whether plot the arrhenius plot."
-    )
-    parser_arrhenius.set_defaults(
-        func=Analyze_arrhenius
-    )
+        help="Whether plot the arrhenius plot.")
+    parser_arrhenius.set_defaults(func=Analyze_arrhenius)
 
     args = parser.parse_args()
     args.func(args)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+
